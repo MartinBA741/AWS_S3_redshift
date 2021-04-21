@@ -18,24 +18,80 @@ time_table_drop = "DROP TABLE IF EXISTS time_table"
 # CREATE TABLES
 
 staging_events_table_create= ("""
+    CREATE TABLE IF NOT EXISTS staging_event_teable
+    (
+        
+    );
 """)
 
 staging_songs_table_create = ("""
+    CREATE TABLE IF NOT EXISTS staging_song_table
+    (
+        
+    );
 """)
 
+# Fact Table
 songplay_table_create = ("""
+    CREATE TABLE IF NOT EXISTS songplay_table
+    (
+        songplay_id BIGSERIAL PRIMARY KEY, 
+        start_time TIMESTAMP REFERENCES time(start_time), 
+        user_id int NOT NULL REFERENCES users(user_id), 
+        level text, 
+        song_id text REFERENCES songs(song_id), 
+        artist_id varchar REFERENCES artists(artist_id), 
+        session_id int, 
+        location text, 
+        user_agent text
+    );
 """)
 
+# Dimension Tables
 user_table_create = ("""
+    CREATE TABLE IF NOT EXISTS user_table
+    (
+        user_id int PRIMARY KEY, 
+        first_name text NOT NULL, 
+        last_name text NOT NULL, 
+        gender text, 
+        level text   
+    );
 """)
 
 song_table_create = ("""
+   CREATE TABLE IF NOT EXISTS song_table
+    (
+        song_id text PRIMARY KEY, 
+        title text NOT NULL, 
+        artist_id varchar NOT NULL, 
+        year int, 
+        duration float NOT NULL
+    );
 """)
 
 artist_table_create = ("""
+   CREATE TABLE IF NOT EXISTS artist_table
+    (
+        artist_id varchar PRIMARY KEY, 
+        name text NOT NULL, 
+        location text, 
+        latitude float, 
+        longitude float
+    );
 """)
 
 time_table_create = ("""
+   CREATE TABLE IF NOT EXISTS time_table
+    (
+        start_time TIMESTAMP PRIMARY KEY, 
+        hour int, 
+        day int, 
+        week int, 
+        month int, 
+        year int, 
+        weekday text
+    );
 """)
 
 # STAGING TABLES
