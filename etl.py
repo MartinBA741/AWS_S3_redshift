@@ -21,11 +21,9 @@ def main():
 
     print('config read! - now connecting...')
     conn = psycopg2.connect("host={} dbname={} user={} password={} port={}".format(*config['CLUSTER'].values()))
-    
-    print('connected! - now creating cursor...')
     cur = conn.cursor()
     
-    print('cursor created! - now loading staging tables...')
+    print('connected! - now loading staging tables...')
     load_staging_tables(cur, conn)
 
     print('staging tables loaded! - now inserting tables...')
