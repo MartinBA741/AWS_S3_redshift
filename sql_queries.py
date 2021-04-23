@@ -24,9 +24,10 @@ time_table_drop = "DROP TABLE IF EXISTS time"
 ## Staging Tables: 
 ### Note that staging tables are used to store data raw/directly from S3 temporarely. 
 ### From there, we are loading data to the STAR schemas (Fact and dimension tables).
-staging_events_table_create= ("""
+staging_events_table_create = ("""
     CREATE TABLE IF NOT EXISTS staging_events
-    (
+    (   
+        event_id        BIGINT IDENTITY(0,1)    NOT NULL,
         artist          VARCHAR,
         auth            VARCHAR,
         firstName       VARCHAR,
@@ -70,7 +71,7 @@ songplay_table_create = ("""
     (
         songplay_id   INT       IDENTITY(0,1) PRIMARY KEY, 
         start_time    TIMESTAMP REFERENCES time(start_time), 
-        user_id       INT       NOT NULL    REFERENCES users(user_id), 
+        user_id       INT       REFERENCES users(user_id), 
         level         VARCHAR, 
         song_id       VARCHAR      REFERENCES songs(song_id), 
         artist_id     VARCHAR   REFERENCES artists(artist_id), 
@@ -134,58 +135,128 @@ staging_events_copy = (f"""
         COPY staging_events FROM '{S3_LOG_DATA}'
         CREDENTIALS 'aws_iam_role={IAM_ROLE_ARN}'
         REGION 'us-west-2' 
-        COMPUPDATE OFF STATUPDATE OFF
-        JSON '{S3_LOG_JSONPATH}'
+        COMPUPDATE OFF
+        JSON AS '{S3_LOG_JSONPATH}'
     """)
 
 
 staging_songs_copy = (f"""
-        copy staging_songs from '{S3_SONG_DATA}'
-        credentials 'aws_iam_role={IAM_ROLE_ARN}'
-        region 'us-west-2' 
-        COMPUPDATE OFF STATUPDATE OFF
-        JSON '{S3_LOG_JSONPATH}'
+        COPY staging_songs from '{S3_SONG_DATA}'
+        CREDENTIALS 'aws_iam_role={IAM_ROLE_ARN}'
+        REGION 'us-west-2' 
+        COMPUPDATE OFF
+        JSON AS 'auto'
     """)
 
 
 
 # FINAL TABLES
-
 songplay_table_insert = ("""
     INSERT INTO songplays 
-        (songplay_id, start_time, user_id, level, song_id, artist_id, 
-        session_id, location, user_agent) 
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-    ON CONFLICT (songplay_id) DO NOTHING;
+    (
+        start_time,
+        user_id,
+        level,
+        song_id,
+        artist_id,
+        session_id,
+        location,
+        user_agent
+    ) 
+    SELECT
+        (TIMESTAMP 'epoch' + se.ts/1000*INTERVAL '1 second') AS start_time, 
+        se.userId,
+        se.level,
+        ss.song_id,
+        ss.artist_id,
+        se.sessionId,
+        se.location,
+        se.userAgent
+    FROM staging_events se
+        LEFT JOIN staging_songs ss
+            ON se.song = ss.title;
 """)
 
 user_table_insert = ("""
-    INSERT INTO users 
-        (user_id, first_name, last_name, gender, level)
-    VALUES (%s, %s, %s, %s, %s)
-    ON CONFLICT (user_id) DO UPDATE SET level = EXCLUDED.level;
-""")   
+INSERT INTO users 
+    (
+        user_id, 
+        first_name, 
+        last_name, 
+        gender, 
+        level
+    )
+SELECT 
+    DISTINCT userID, 
+    firstName, 
+    lastName, 
+    gender, 
+    level
+FROM staging_events
+WHERE userID IS NOT NULL
+""") 
 
 song_table_insert = ("""
-    INSERT INTO songs 
-        (song_id, title, artist_id, year, duration)    
-    VALUES (%s, %s, %s, %s, %s)
-    ON CONFLICT (song_id) DO NOTHING;
+INSERT INTO songs 
+    (
+        song_id, 
+        title, 
+        artist_id, 
+        year, 
+        duration
+    )
+SELECT 
+    song_id, 
+    title, 
+    artist_id, 
+    year, 
+    duration
+FROM staging_songs
+WHERE song_id IS NOT NULL
 """)
 
 artist_table_insert = ("""
-    INSERT INTO artists 
-        (artist_id, name, location, latitude, longitude)
-    VALUES (%s, %s, %s, %s, %s)
-    ON CONFLICT (artist_id) DO NOTHING;
+INSERT INTO artists 
+    (
+        artist_id, 
+        name, 
+        location, 
+        latitude, 
+        longitude
+    )
+SELECT
+    DISTINCT artist_id, 
+    artist_name, 
+    artist_location, 
+    artist_latitude, 
+    artist_longitude
+FROM staging_songs
+WHERE artist_id IS NOT NULL
 """)
 
 time_table_insert = ("""
-    INSERT INTO time 
-        (start_time, hour, day, week, month, year, weekday)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
-    ON CONFLICT (start_time) DO NOTHING;
+INSERT INTO time 
+    (   
+        start_time, 
+        hour, 
+        day, 
+        week, 
+        month, 
+        year, 
+        weekday
+    )
+SELECT 
+    DISTINCT start_time, 
+    DATE_PART(hr, start_time), 
+    DATE_PART(d, start_time), 
+    DATE_PART(w, start_time),
+    DATE_PART(mon, start_time),
+    DATE_PART(y, start_time), 
+    DATE_PART(dow,start_time)
+FROM songplays
+WHERE start_time IS NOT NULL
 """)
+
 
 # QUERY LISTS
 
