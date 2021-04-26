@@ -45,7 +45,7 @@ staging_events_table_create = ("""
         status          INT,
         ts              BIGINT,
         userAgent       VARCHAR,
-        userId          INT
+        userId          INT              NOT NULL
     );
 """)
 
@@ -70,10 +70,10 @@ songplay_table_create = ("""
     CREATE TABLE IF NOT EXISTS songplays
     (
         songplay_id   INT       IDENTITY(0,1) PRIMARY KEY, 
-        start_time    TIMESTAMP REFERENCES time(start_time), 
-        user_id       INT       REFERENCES users(user_id), 
+        start_time    TIMESTAMP REFERENCES time(start_time)     NOT NULL, 
+        user_id       INT       REFERENCES users(user_id)       NOT NULL, 
         level         VARCHAR, 
-        song_id       VARCHAR      REFERENCES songs(song_id), 
+        song_id       VARCHAR   REFERENCES songs(song_id), 
         artist_id     VARCHAR   REFERENCES artists(artist_id), 
         session_id    INT, 
         location      VARCHAR, 
@@ -98,17 +98,17 @@ song_table_create = ("""
     (
         song_id     VARCHAR        PRIMARY KEY, 
         title       VARCHAR        NOT NULL, 
-        artist_id   VARCHAR     NOT NULL, 
+        artist_id   VARCHAR        NOT NULL, 
         year        INT, 
-        duration    NUMERIC       NOT NULL
+        duration    NUMERIC        NOT NULL
     );
 """)
 
 artist_table_create = ("""
    CREATE TABLE IF NOT EXISTS artists
     (
-        artist_id   VARCHAR     PRIMARY KEY, 
-        name        VARCHAR        NOT NULL, 
+        artist_id   VARCHAR       PRIMARY KEY, 
+        name        VARCHAR       NOT NULL, 
         location    VARCHAR, 
         latitude    NUMERIC, 
         longitude   NUMERIC
@@ -176,6 +176,8 @@ songplay_table_insert = ("""
         LEFT JOIN staging_songs ss
             ON se.song = ss.title;
 """)
+# WHERE se.page = "NextSong"
+
 
 user_table_insert = ("""
 INSERT INTO users 
@@ -193,7 +195,7 @@ SELECT
     gender, 
     level
 FROM staging_events
-WHERE userID IS NOT NULL
+WHERE userID IS NOT NULL AND page='NextSong'
 """) 
 
 song_table_insert = ("""
@@ -218,7 +220,7 @@ WHERE song_id IS NOT NULL
 artist_table_insert = ("""
 INSERT INTO artists 
     (
-        artist_id, 
+        DISTINCT artist_id, 
         name, 
         location, 
         latitude, 
